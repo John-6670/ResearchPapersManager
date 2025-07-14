@@ -1,7 +1,6 @@
 from pymongo import MongoClient, ASCENDING, TEXT
 from bson import ObjectId
 import bcrypt
-from datetime import datetime
 import os
 from dotenv import load_dotenv
 
@@ -56,3 +55,59 @@ class Database:
             return self.users.find_one({"_id": ObjectId(user_id)})
         except:
             return None
+
+    def create_paper(self, paper_data, citations=None):
+        paper_data['uploaded_by'] = ObjectId(paper_data['uploaded_by'])
+        paper_data['views'] = 0
+        result = self.papers.insert_one(paper_data)
+        paper_id = result.inserted_id
+
+        if citations:
+            citation_docs = []
+            for cited_id in citations:
+                citation_docs.append({
+                    "paper_id": paper_id,
+                    "cited_paper_id": ObjectId(cited_id)
+                })
+            if citation_docs:
+                self.citations.insert_many(citation_docs)
+
+        return str(paper_id)
+
+    def get_paper_by_id(self, paper_id):
+        try:
+            return self.papers.find_one({"_id": ObjectId(paper_id)})
+        except:
+            return None
+
+    def search_papers(self, search_term="", sort_by="relevance", order="desc"):
+        query = {}
+        projection = None
+        sort_direction = -1 if order == "desc" else 1
+
+        # Set up text search if a search term is provided
+        if search_term.strip():
+            query["$text"] = {"$search": search_term}
+            projection = {"score": {"$meta": "textScore"}}
+
+        # Determine how to sort based on parameters and if text search is used
+        if sort_by == "relevance" and search_term.strip():
+            # Sort by text relevance score
+            sort_spec = [("score", {"$meta": "textScore"})]
+        else:
+            # Sort by publication_date
+            if search_term.strip():
+                # When using text search but sorting by a field, include both
+                sort_spec = [
+                    ("publication_date", sort_direction),
+                    ("score", {"$meta": "textScore"})
+                ]
+            else:
+                # No text search, simple field sort
+                sort_spec = [("publication_date", sort_direction)]
+
+        # Execute the query with proper projection and sorting
+        cursor = self.papers.find(query, projection)
+        cursor = cursor.sort(sort_spec)
+
+        return list(cursor)

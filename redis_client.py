@@ -21,3 +21,15 @@ class RedisClient:
 
     def mark_username_taken(self, username: str) -> None:
         self.client.hset(self.username_hash_key, username, 1)
+
+    def get_search_cache(self, search_term: str, sort_by: str, order: str) -> Optional[List[Dict[Any, Any]]]:
+        cache_key = f"search:{search_term}:{sort_by}:{order}"
+        cached_result = self.client.get(cache_key)
+        if cached_result:
+            return json.loads(cached_result)
+        return None
+
+    def set_search_cache(self, search_term: str, sort_by: str, order: str,
+                        results: List[Dict[Any, Any]], ttl: int = 300) -> None:
+        cache_key = f"search:{search_term}:{sort_by}:{order}"
+        self.client.setex(cache_key, ttl, json.dumps(results, default=str))

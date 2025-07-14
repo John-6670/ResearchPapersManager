@@ -44,6 +44,43 @@ def validate_user(**kwargs):
     return True, ""
 
 
+def validate_paper(paper_data):
+    if not paper_data.get('title') or len(paper_data['title']) > 200:
+        return False, "Title is required and must be less than 200 characters."
+
+    if not paper_data.get('abstract') or len(paper_data['abstract']) > 1000:
+        return False, "Abstract is required and must be less than 1000 characters."
+
+    if not paper_data.get('publication_date') or not validate_date(paper_data['publication_date']):
+        return False, "Publication date is required and must be in ISO format (YYYY-MM-DD)."
+
+    authors = paper_data.get('authors', [])
+    if 1 <= len(authors) <= 5:
+        for authors in authors:
+            if len(authors) > 100:
+                return False, "Each author must be a non-empty string with a maximum length of 100 characters."
+    else:
+        return False, "There must be between 1 and 5 authors."
+
+    if len(paper_data.get('journal_conference', '')) > 200:
+        return False, "Journal or conference name must be less than 200 characters."
+
+    keywords = paper_data.get('keywords', [])
+    if 1 <= len(keywords) <= 5:
+        for keyword in keywords:
+            if not keyword or len(keyword) > 50:
+                return False, "Each keyword must be a non-empty string with a maximum length of 50 characters."
+    else:
+        return False, "There must be between 1 and 5 keywords."
+
+    citations = paper_data.get('citations', [])
+    if citations:
+        if len(citations) > 5:
+            return False, "A paper can have a maximum of 5 citations."
+
+    return True, ""
+
+
 def convert_objectid_to_str(doc):
     if doc:
         doc['_id'] = str(doc['_id'])

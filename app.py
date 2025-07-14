@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from redis_client import RedisClient
 
 from database import Database
-from utils import validate_user
+from utils import validate_user, validate_paper
 
 app = Flask(__name__)
 
@@ -22,8 +22,10 @@ def signup():
         department = data.get('department', '').strip()
 
         # Check for required fields
-        if not all([username, name, email, password, department]):
-            return jsonify({"error": "All fields are required"}), 400
+        missing_fields = [field for field, value in zip(['username', 'name', 'email', 'password', 'department'],
+                                                       [username, name, email, password, department]) if not value]
+        if missing_fields:
+            return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
 
         # Validate user data
         is_valid, error_message = validate_user(
@@ -82,6 +84,82 @@ def login():
 
     except Exception as e:
         return jsonify({"error": "Unknown error accrued."}), 500
+
+
+@app.route('/papers', methods=['POST'])
+def upload_paper():
+    try:
+        user_id = request.headers.get('X-User-ID')
+        if not user_id:
+            return jsonify({"error": "Needs User session in header"}), 401
+
+        user = db.get_user_by_id(user_id)
+        if not user:
+            return jsonify({"error": "Session is invalid"}), 401
+
+        data = request.get_json()
+
+        is_valid, error_message = validate_paper(data)
+        if not is_valid:
+            return jsonify({"error": error_message}), 400
+
+        citations = data.get('citations', [])
+        if citations:
+            for citation_id in citations:
+                if not db.paper_exists(citation_id):
+                    return jsonify({"error": f"There is no paper with {citation_id}"}), 404
+
+        data['uploaded_by'] = str(user_id)
+        paper_id = db.create_paper(data, citations)
+
+        return jsonify({
+            "message": "Paper uploaded",
+            "paper_id": paper_id
+        }), 201
+
+    except Exception as e:
+        return jsonify({"error": "Unknown error accrued."}), 500
+
+
+@app.route('/papers', methods=['GET'])
+def search_papers():
+    try:
+        search_term = request.args.get('search', '').strip()
+        sort_by = request.args.get('sort_by', 'relevance')
+        order = request.args.get('order', 'desc')
+
+        if sort_by not in ['relevance', 'publication_date']:
+            return jsonify({"error": "sort_by parameter should be either relevance or publication_date"}), 400
+
+        if order not in ['asc', 'desc']:
+            return jsonify({"error": "order parameter should be either asc or desc"}), 400
+
+        # Check cache for the search result
+        cached_result = redis_client.get_search_cache(search_term, sort_by, order)
+        if cached_result:
+            return jsonify({"papers": cached_result}), 200
+
+        # Search papers in the database
+        papers = db.search_papers(search_term, sort_by, order)
+
+        result_papers = []
+        for paper in papers:
+            result_papers.append({
+                "id": str(paper['_id']),
+                "title": paper['title'],
+                "authors": paper['authors'],
+                "publication_date": paper['publication_date'],
+                "journal_conference": paper.get('journal_conference', ''),
+                "keywords": paper['keywords']
+            })
+
+        # Cache the result
+        redis_client.set_search_cache(search_term, sort_by, order, result_papers)
+
+        return jsonify({"papers": result_papers}), 200
+
+    except Exception as e:
+        return jsonify({"error": e}), 500
 
 
 if __name__ == '__main__':

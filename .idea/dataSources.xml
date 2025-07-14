@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
-    <data-source source="LOCAL" name="DB" uuid="bf7dc7d3-dfab-40ff-881f-4147957f289b">
+    <data-source source="LOCAL" name="DB" uuid="8d0a177d-8927-4c6a-9ec4-6fb4a9a9673f">
       <driver-ref>mongo</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.dbschema.MongoJdbcDriver</jdbc-driver>
       <jdbc-url>mongodb://localhost:27017/research_papers</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="Cache" uuid="1909f022-081a-46b8-a50f-51cbb86dddfc">
+    <data-source source="LOCAL" name="Cache" uuid="9a25acae-a936-4023-b892-05d43109e7c2">
       <driver-ref>redis</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>jdbc.RedisDriver</jdbc-driver>
