@@ -166,3 +166,27 @@ cython_debug/
 instance/*
 !instance/.gitignore
 
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Database files (if using local files)
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
