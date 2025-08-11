@@ -3,11 +3,13 @@ from redis_client import RedisClient
 
 from database import Database
 from utils import validate_user, validate_paper
+from sync_cache_db import start_background_tasks
 
 app = Flask(__name__)
 
 db = Database()
 redis_client = RedisClient()
+background_task = start_background_tasks()
 
 
 @app.route('/signup', methods=['POST'])
@@ -157,6 +159,30 @@ def search_papers():
         redis_client.set_search_cache(search_term, sort_by, order, result_papers)
 
         return jsonify({"papers": result_papers}), 200
+
+    except Exception as e:
+        return jsonify({"error": "Unknown error accrued."}), 500
+
+
+@app.route('/papers/<paper_id>', methods=['GET'])
+def get_paper_details(paper_id):
+    try:
+        paper = db.get_paper_by_id(paper_id)
+        if not paper:
+            return jsonify({"error": "There isn't any paper with this id."}), 404
+
+        redis_client.increment_paper_views(paper_id)
+        redis_views = redis_client.get_paper_views(paper_id)
+        citation_count = db.get_citation_count(paper_id)
+
+        result = paper
+        result['_id'] = str(result['_id'])
+        result['views'] += redis_views
+        result['citation_count'] = citation_count
+        result['journal_conference'] = result.get('journal_conference', '')
+        result['uploaded_by'] = str(result['uploaded_by'])
+
+        return jsonify(result), 200
 
     except Exception as e:
         return jsonify({"error": e}), 500

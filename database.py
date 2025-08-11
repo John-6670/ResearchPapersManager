@@ -82,32 +82,48 @@ class Database:
 
     def search_papers(self, search_term="", sort_by="relevance", order="desc"):
         query = {}
-        projection = None
+        projection = {
+            "title": 1,
+            "authors": 1,
+            "publication_date": 1,
+            "journal_conference": 1,
+            "keywords": 1
+        }
         sort_direction = -1 if order == "desc" else 1
 
         # Set up text search if a search term is provided
-        if search_term.strip():
+        if search_term:
             query["$text"] = {"$search": search_term}
-            projection = {"score": {"$meta": "textScore"}}
+            projection["score"] = {"$meta": "textScore"}
 
-        # Determine how to sort based on parameters and if text search is used
-        if sort_by == "relevance" and search_term.strip():
-            # Sort by text relevance score
+        if sort_by == "relevance" and search_term:
             sort_spec = [("score", {"$meta": "textScore"})]
+        elif sort_by == 'publication_date':
+            sort_spec = [("publication_date", sort_direction)]
         else:
-            # Sort by publication_date
-            if search_term.strip():
-                # When using text search but sorting by a field, include both
-                sort_spec = [
-                    ("publication_date", sort_direction),
-                    ("score", {"$meta": "textScore"})
-                ]
-            else:
-                # No text search, simple field sort
-                sort_spec = [("publication_date", sort_direction)]
+            sort_spec = [("_id", -1 if order == "desc" else 1)]
 
-        # Execute the query with proper projection and sorting
-        cursor = self.papers.find(query, projection)
-        cursor = cursor.sort(sort_spec)
-
+        cursor = self.papers.find(query, projection).sort(sort_spec)
         return list(cursor)
+
+    def get_citation_count(self, paper_id):
+        try:
+            return self.citations.count_documents({"cited_paper_id": ObjectId(paper_id)})
+        except:
+            return 0
+
+    def update_paper_views(self, paper_id, view_count):
+        try:
+            self.papers.update_one(
+                {"_id": ObjectId(paper_id)},
+                {"$inc": {"views": view_count}}
+            )
+            return True
+        except:
+            return False
+
+    def paper_exists(self, paper_id):
+        try:
+            return self.papers.count_documents({"_id": ObjectId(paper_id)}) > 0
+        except:
+            return False
